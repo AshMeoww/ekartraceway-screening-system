@@ -45,6 +45,37 @@ Use either `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` or the older
 5. Create the first auth user and add a matching `user_profiles` row with role
    `admin` or `hr`.
 
+### Google OAuth
+
+The app uses `/auth/login` for both applicants and admins. After sign-in, users
+with a `user_profiles` role of `admin` or `hr` are sent to `/hr`; everyone else
+is sent to `/account/applications`.
+
+To enable Google OAuth in Supabase:
+
+1. Go to Authentication > Providers > Google.
+2. Enable Google and add your Google OAuth client ID and secret.
+3. In your Google Cloud OAuth client, add this authorized redirect URI:
+
+```text
+https://YOUR_PROJECT_REF.supabase.co/auth/v1/callback
+```
+
+4. In Supabase Authentication > URL Configuration, add your local site URL:
+
+```text
+http://localhost:3000
+```
+
+5. Add this redirect URL:
+
+```text
+http://localhost:3000/auth/callback
+```
+
+For production, also add the deployed app URL and deployed `/auth/callback`
+URL.
+
 ## Development
 
 ```bash
@@ -64,7 +95,10 @@ Open [http://localhost:3000](http://localhost:3000).
 - `/jobs` public job listing
 - `/jobs/[slug]` public job detail
 - `/jobs/[slug]/apply` applicant form and CV upload
-- `/login` HR login
+- `/auth/signup` applicant account creation
+- `/auth/login` unified applicant/admin login
+- `/account/applications` saved applicant submissions
+- `/login` redirects to unified login
 - `/hr` HR dashboard
 - `/hr/jobs` HR job management surface
 - `/hr/applications` applicant ranking table

@@ -84,6 +84,21 @@ export type Application = {
   updatedAt: string;
 };
 
+export type ApplicantSavedApplication = {
+  id: string;
+  status: ApplicationStatus;
+  coverNote?: string;
+  createdAt: string;
+  updatedAt: string;
+  job: {
+    title: string;
+    slug: string;
+    department: string;
+    location: string;
+  };
+  score?: Pick<ScoreBreakdown, "finalScore" | "explanation" | "weakAreas">;
+};
+
 export type AuditEventType =
   | "application.created"
   | "document.uploaded"
