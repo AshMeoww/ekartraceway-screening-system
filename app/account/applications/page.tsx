@@ -32,6 +32,9 @@ export default async function ApplicantApplicationsPage() {
           </div>
           <nav className="flex flex-wrap gap-2">
             <Button asChild variant="secondary" size="sm">
+              <Link href="/account/profile">Profile</Link>
+            </Button>
+            <Button asChild variant="secondary" size="sm">
               <Link href="/jobs">Browse jobs</Link>
             </Button>
             <form action={signOut}>

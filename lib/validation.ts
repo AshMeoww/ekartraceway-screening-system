@@ -9,6 +9,18 @@ export const applicationSchema = z.object({
   coverNote: z.string().trim().max(2000).optional(),
 });
 
+export const applicantProfileSchema = z.object({
+  fullName: z.string().trim().min(2, "Enter your full name."),
+  email: z.email("Enter a valid email address."),
+  phone: z.string().trim().max(40).optional(),
+  headline: z.string().trim().max(120).optional(),
+  location: z.string().trim().max(120).optional(),
+  yearsExperience: z.coerce.number().int().min(0).max(60),
+  skills: z.array(z.string().trim().min(1)).max(50),
+  education: z.array(z.string().trim().min(1)).max(30),
+  certifications: z.array(z.string().trim().min(1)).max(30),
+});
+
 export const statusUpdateSchema = z.object({
   status: z.enum(["submitted", "screening", "shortlisted", "interview", "rejected", "hired"]),
   overrideReason: z.string().trim().max(1000).optional(),
@@ -40,6 +52,22 @@ export const screeningWeightsSchema = z
   );
 
 export type ApplicationInput = z.infer<typeof applicationSchema>;
+export type ApplicantProfileInput = z.infer<typeof applicantProfileSchema>;
+
+export function parseProfileList(value: FormDataEntryValue | string[] | null) {
+  if (Array.isArray(value)) {
+    return value.map((item) => item.trim()).filter(Boolean);
+  }
+
+  if (typeof value !== "string") {
+    return [];
+  }
+
+  return value
+    .split(/\r?\n|,/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
 
 export function getDefaultWeights() {
   return screeningWeightsSchema.parse(defaultWeights);
