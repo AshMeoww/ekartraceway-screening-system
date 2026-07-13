@@ -1,7 +1,16 @@
-import type { Application, Job } from "@/lib/types";
+import type {
+  ApplicantProfile,
+  ApplicantSavedApplication,
+  Application,
+  Job,
+} from "@/lib/types";
 import { rankApplications } from "@/lib/scoring";
 import { sampleApplications, sampleJobs } from "@/lib/sample-data";
-import { getSupabaseServerClient, isSupabaseConfigured } from "@/lib/supabase/server";
+import {
+  getCurrentUser,
+  getSupabaseServerClient,
+  isSupabaseConfigured,
+} from "@/lib/supabase/server";
 
 type JobRow = {
   id: string;
@@ -71,6 +80,55 @@ type ApplicationRow = {
   scores: ScoreRow | ScoreRow[] | null;
 };
 
+type ApplicantAccountApplicationRow = {
+  id: string;
+  status: Application["status"];
+  cover_note: string | null;
+  created_at: string;
+  updated_at: string;
+  jobs:
+    | {
+        title: string;
+        slug: string;
+        department: string;
+        location: string;
+      }
+    | {
+        title: string;
+        slug: string;
+        department: string;
+        location: string;
+      }[]
+    | null;
+  scores:
+    | {
+        final_score: number;
+        explanation: string;
+        weak_areas: string[] | null;
+      }
+    | {
+        final_score: number;
+        explanation: string;
+        weak_areas: string[] | null;
+      }[]
+    | null;
+};
+
+type ApplicantProfileRow = {
+  id: string;
+  full_name: string;
+  email: string;
+  phone: string | null;
+  headline: string | null;
+  location: string | null;
+  years_experience: number | null;
+  skills: string[] | null;
+  education: string[] | null;
+  certifications: string[] | null;
+  created_at: string;
+  updated_at: string;
+};
+
 function mapJob(row: JobRow): Job {
   return {
     id: row.id,
@@ -90,6 +148,31 @@ function mapJob(row: JobRow): Job {
     weights: row.weights,
     createdAt: row.created_at,
   };
+}
+
+function mapApplicantProfile(row: ApplicantProfileRow): ApplicantProfile {
+  return {
+    id: row.id,
+    fullName: row.full_name,
+    email: row.email,
+    phone: row.phone ?? undefined,
+    headline: row.headline ?? undefined,
+    location: row.location ?? undefined,
+    yearsExperience: row.years_experience ?? 0,
+    skills: row.skills ?? [],
+    education: row.education ?? [],
+    certifications: row.certifications ?? [],
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+function isMissingApplicantProfilesTable(error: { code?: string; message?: string }) {
+  return (
+    error.code === "PGRST205" ||
+    (error.message?.includes("applicant_profiles") &&
+      error.message.includes("schema cache"))
+  );
 }
 
 export async function getPublishedJobs() {
@@ -252,4 +335,103 @@ export async function getHrApplications() {
 export async function getHrApplicationById(id: string) {
   const applications = await getHrApplications();
   return applications.find((application) => application.id === id) ?? null;
+}
+
+export async function getApplicantSavedApplications() {
+  const user = await getCurrentUser();
+
+  if (!user) {
+    return { user: null, applications: [] as ApplicantSavedApplication[] };
+  }
+
+  if (!isSupabaseConfigured()) {
+    return { user, applications: [] as ApplicantSavedApplication[] };
+  }
+
+  const supabase = await getSupabaseServerClient();
+  const { data, error } = await supabase!
+    .from("applications")
+    .select(
+      "id, status, cover_note, created_at, updated_at, applicants!inner(user_id), jobs(title, slug, department, location), scores(final_score, explanation, weak_areas)",
+    )
+    .eq("applicants.user_id", user.id)
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  const applications = (data as unknown as ApplicantAccountApplicationRow[]).map(
+    (row) => {
+      const job = Array.isArray(row.jobs) ? row.jobs[0] : row.jobs;
+      const score = Array.isArray(row.scores) ? row.scores[0] : row.scores;
+
+      if (!job) {
+        throw new Error(`Application ${row.id} is missing a job relation.`);
+      }
+
+      return {
+        id: row.id,
+        status: row.status,
+        coverNote: row.cover_note ?? undefined,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at,
+        job: {
+          title: job.title,
+          slug: job.slug,
+          department: job.department,
+          location: job.location,
+        },
+        score: score
+          ? {
+              finalScore: score.final_score,
+              explanation: score.explanation,
+              weakAreas: score.weak_areas ?? [],
+            }
+          : undefined,
+      } satisfies ApplicantSavedApplication;
+    },
+  );
+
+  return { user, applications };
+}
+
+export async function getApplicantProfile() {
+  const user = await getCurrentUser();
+
+  if (!user) {
+    return { user: null, profile: null };
+  }
+
+  if (!isSupabaseConfigured()) {
+    return { user, profile: null };
+  }
+
+  const supabase = await getSupabaseServerClient();
+  const { data, error } = await supabase!
+    .from("applicant_profiles")
+    .select(
+      "id, full_name, email, phone, headline, location, years_experience, skills, education, certifications, created_at, updated_at",
+    )
+    .eq("id", user.id)
+    .maybeSingle();
+
+  if (error) {
+    if (isMissingApplicantProfilesTable(error)) {
+      return {
+        user,
+        profile: null,
+        setupError:
+          "Applicant profiles are not available yet. Apply the applicant_profiles Supabase migration, then reload the page.",
+      };
+    }
+
+    throw new Error(error.message);
+  }
+
+  return {
+    user,
+    profile: data ? mapApplicantProfile(data as ApplicantProfileRow) : null,
+    setupError: null,
+  };
 }

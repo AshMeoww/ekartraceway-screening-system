@@ -1,9 +1,14 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { getCurrentHrUser, getSupabaseServiceClient } from "@/lib/supabase/server";
-import { screeningWeightsSchema } from "@/lib/validation";
-import type { JobStatus } from "@/lib/types";
+import {
+  jobSchema,
+  jobStatusSchema,
+  parseProfileList,
+  screeningWeightsSchema,
+} from "@/lib/validation";
 
 type JobActionState = {
   error?: string;
@@ -11,10 +16,7 @@ type JobActionState = {
 };
 
 function lines(value: FormDataEntryValue | null) {
-  return String(value ?? "")
-    .split("\n")
-    .map((item) => item.trim())
-    .filter(Boolean);
+  return parseProfileList(value);
 }
 
 function slugify(value: string) {
@@ -23,6 +25,28 @@ function slugify(value: string) {
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-|-$/g, "")
     .slice(0, 72);
+}
+
+function encoded(value: string) {
+  return encodeURIComponent(value);
+}
+
+function isTimeoutError(error: unknown) {
+  return error instanceof Error && error.message === "request-timeout";
+}
+
+async function withTimeout<T>(promise: PromiseLike<T>, ms = 8000) {
+  let timeout: ReturnType<typeof setTimeout>;
+
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    timeout = setTimeout(() => reject(new Error("request-timeout")), ms);
+  });
+
+  try {
+    return await Promise.race([promise, timeoutPromise]);
+  } finally {
+    clearTimeout(timeout!);
+  }
 }
 
 export async function createJob(
@@ -47,13 +71,23 @@ export async function createJob(
     return { error: "Screening weights must be valid and total 100." };
   }
 
-  const title = String(formData.get("title") ?? "").trim();
-  const summary = String(formData.get("summary") ?? "").trim();
-  const requirements = lines(formData.get("requirements"));
-  const skills = lines(formData.get("skills"));
+  const parsedJob = jobSchema.safeParse({
+    title: formData.get("title"),
+    department: formData.get("department"),
+    location: formData.get("location"),
+    employmentType: formData.get("employmentType"),
+    summary: formData.get("summary"),
+    requirements: lines(formData.get("requirements")),
+    skills: lines(formData.get("skills")),
+    minYearsExperience: formData.get("minYearsExperience") ?? 0,
+  });
 
-  if (title.length < 2 || summary.length < 20 || requirements.length === 0 || skills.length === 0) {
-    return { error: "Title, summary, requirements, and skills are required." };
+  if (!parsedJob.success) {
+    return {
+      error:
+        parsedJob.error.issues[0]?.message ??
+        "Title, summary, requirements, and skills are required.",
+    };
   }
 
   const supabase = getSupabaseServiceClient();
@@ -62,34 +96,58 @@ export async function createJob(
     return { error: "Supabase service role credentials are required to save jobs." };
   }
 
-  const status = String(formData.get("status") ?? "draft") as JobStatus;
-  const { data: job, error } = await supabase
-    .from("jobs")
-    .insert({
-      slug: `${slugify(title)}-${crypto.randomUUID().slice(0, 8)}`,
-      title,
-      department: String(formData.get("department") ?? "").trim(),
-      location: String(formData.get("location") ?? "").trim(),
-      employment_type: String(formData.get("employmentType") ?? "").trim(),
-      status,
-      summary,
-      responsibilities: lines(formData.get("responsibilities")),
-      requirements,
-      skills,
-      education: lines(formData.get("education")),
-      certifications: lines(formData.get("certifications")),
-      min_years_experience: Number(formData.get("minYearsExperience") ?? 0),
-      weights: weights.data,
-      created_by: hrUser.user.id,
-    })
-    .select("id")
-    .single();
+  const parsedStatus = jobStatusSchema.safeParse(formData.get("status") ?? "draft");
+
+  if (!parsedStatus.success) {
+    return { error: "Invalid job status." };
+  }
+
+  const jobInput = parsedJob.data;
+  const status = parsedStatus.data;
+  let createResult;
+
+  try {
+    createResult = await withTimeout(
+      supabase
+        .from("jobs")
+        .insert({
+          slug: `${slugify(jobInput.title)}-${crypto.randomUUID().slice(0, 8)}`,
+          title: jobInput.title,
+          department: jobInput.department,
+          location: jobInput.location,
+          employment_type: jobInput.employmentType,
+          status,
+          summary: jobInput.summary,
+          responsibilities: lines(formData.get("responsibilities")),
+          requirements: jobInput.requirements,
+          skills: jobInput.skills,
+          education: lines(formData.get("education")),
+          certifications: lines(formData.get("certifications")),
+          min_years_experience: jobInput.minYearsExperience,
+          weights: weights.data,
+          created_by: hrUser.user.id,
+        })
+        .select("id")
+        .single(),
+    );
+  } catch (error: unknown) {
+    if (isTimeoutError(error)) {
+      return {
+        error:
+          "Supabase took too long to create the job. Check your project connection and try again.",
+      };
+    }
+
+    throw error;
+  }
+
+  const { data: job, error } = createResult;
 
   if (error) {
     return { error: error.message };
   }
 
-  await supabase.from("audit_logs").insert([
+  void supabase.from("audit_logs").insert([
     {
       job_id: job.id,
       actor_id: hrUser.user.id,
@@ -116,30 +174,62 @@ export async function setJobStatus(formData: FormData) {
   const hrUser = await getCurrentHrUser();
 
   if (!hrUser) {
-    return;
+    redirect("/hr/jobs?error=HR%20access%20is%20required.");
   }
 
   const jobId = String(formData.get("jobId") ?? "");
-  const status = String(formData.get("status") ?? "draft") as JobStatus;
+  const parsedStatus = jobStatusSchema.safeParse(formData.get("status") ?? "draft");
   const supabase = getSupabaseServiceClient();
 
-  if (!supabase || !jobId) {
-    return;
+  if (!jobId) {
+    redirect("/hr/jobs?error=Missing%20job%20id.");
   }
 
-  const { error } = await supabase
-    .from("jobs")
-    .update({ status, updated_at: new Date().toISOString() })
-    .eq("id", jobId);
-
-  if (!error) {
-    await supabase.from("audit_logs").insert({
-      job_id: jobId,
-      actor_id: hrUser.user.id,
-      event_type: status === "published" ? "job.published" : "job.unpublished",
-    });
+  if (!parsedStatus.success) {
+    redirect("/hr/jobs?error=Invalid%20job%20status.");
   }
+
+  if (!supabase) {
+    redirect(
+      "/hr/jobs?error=Supabase%20service%20role%20credentials%20are%20required%20to%20publish%20jobs.",
+    );
+  }
+
+  const status = parsedStatus.data;
+  let updateResult;
+
+  try {
+    updateResult = await withTimeout(
+      supabase
+        .from("jobs")
+        .update({ status, updated_at: new Date().toISOString() })
+        .eq("id", jobId),
+    );
+  } catch (error: unknown) {
+    if (isTimeoutError(error)) {
+      redirect(
+        "/hr/jobs?error=Supabase%20took%20too%20long%20to%20publish%20the%20job.%20Check%20your%20project%20connection%20and%20try%20again.",
+      );
+    }
+
+    throw error;
+  }
+
+  const { error } = updateResult;
+
+  if (error) {
+    redirect(`/hr/jobs?error=${encoded(error.message)}`);
+  }
+
+  void supabase.from("audit_logs").insert({
+    job_id: jobId,
+    actor_id: hrUser.user.id,
+    event_type: status === "published" ? "job.published" : "job.unpublished",
+  });
 
   revalidatePath("/hr/jobs");
   revalidatePath("/jobs");
+  redirect(
+    `/hr/jobs?message=${status === "published" ? "Job%20published." : "Job%20unpublished."}`,
+  );
 }

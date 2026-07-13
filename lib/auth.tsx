@@ -30,7 +30,7 @@ export async function HrGate({ children }: { children: React.ReactNode }) {
               </p>
             ) : null}
             <Button asChild>
-              <Link href="/login">Go to HR login</Link>
+              <Link href="/auth/login">Go to sign in</Link>
             </Button>
           </CardContent>
         </Card>

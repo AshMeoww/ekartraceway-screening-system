@@ -4,6 +4,7 @@ import { extractCvText, parseProfileFromText } from "@/lib/cv";
 import { getJobById } from "@/lib/data";
 import { scoreApplicant } from "@/lib/scoring";
 import {
+  getCurrentUser,
   getSupabaseServiceClient,
   isServiceRoleConfigured,
 } from "@/lib/supabase/server";
@@ -39,6 +40,7 @@ export async function POST(request: Request) {
   const rawText = await extractCvText(file);
   const parsedProfile = parseProfileFromText(rawText);
   const score = scoreApplicant(job, parsedProfile);
+  const currentUser = await getCurrentUser();
 
   if (!isServiceRoleConfigured()) {
     return NextResponse.json({
@@ -54,6 +56,7 @@ export async function POST(request: Request) {
   const { data: applicant, error: applicantError } = await supabase
     .from("applicants")
     .insert({
+      user_id: currentUser?.id ?? null,
       full_name: parsedInput.data.fullName,
       email: parsedInput.data.email,
       phone: parsedInput.data.phone ?? null,

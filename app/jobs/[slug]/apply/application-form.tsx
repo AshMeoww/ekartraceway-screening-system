@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { applicationSchema, type ApplicationInput } from "@/lib/validation";
@@ -11,9 +12,19 @@ import { Textarea } from "@/components/ui/textarea";
 
 type Props = {
   jobId: string;
+  initialEmail?: string;
+  initialFullName?: string;
+  initialPhone?: string;
+  isSignedIn?: boolean;
 };
 
-export function ApplicationForm({ jobId }: Props) {
+export function ApplicationForm({
+  jobId,
+  initialEmail = "",
+  initialFullName = "",
+  initialPhone = "",
+  isSignedIn = false,
+}: Props) {
   const [cvFile, setCvFile] = useState<File | null>(null);
   const [result, setResult] = useState<string | null>(null);
   const [serverError, setServerError] = useState<string | null>(null);
@@ -24,7 +35,12 @@ export function ApplicationForm({ jobId }: Props) {
     reset,
   } = useForm<ApplicationInput>({
     resolver: zodResolver(applicationSchema),
-    defaultValues: { jobId },
+    defaultValues: {
+      jobId,
+      email: initialEmail,
+      fullName: initialFullName,
+      phone: initialPhone,
+    },
   });
 
   async function onSubmit(values: ApplicationInput) {
@@ -59,12 +75,36 @@ export function ApplicationForm({ jobId }: Props) {
       body.message ??
         "Application submitted. HR will review the parsed profile and advisory score.",
     );
-    reset({ jobId });
+    reset({
+      jobId,
+      email: initialEmail,
+      fullName: initialFullName,
+      phone: initialPhone,
+    });
     setCvFile(null);
   }
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="grid gap-5">
+      <div className="rounded-md border border-border bg-card p-4 text-sm leading-6 text-muted-foreground">
+        {isSignedIn ? (
+          <>
+            You are signed in. This application will be saved to{" "}
+            <Link href="/account/applications" className="font-bold text-primary">
+              My applications
+            </Link>
+            .
+          </>
+        ) : (
+          <>
+            You can submit as a guest, or{" "}
+            <Link href="/auth/signup" className="font-bold text-primary">
+              create an applicant account
+            </Link>{" "}
+            to save and track this application.
+          </>
+        )}
+      </div>
       <input type="hidden" value={jobId} {...register("jobId")} />
       <div className="grid gap-2">
         <Label htmlFor="fullName">Full name</Label>

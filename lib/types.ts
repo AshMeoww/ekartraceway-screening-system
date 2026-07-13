@@ -34,6 +34,21 @@ export type Applicant = {
   phone?: string;
 };
 
+export type ApplicantProfile = {
+  id: string;
+  fullName: string;
+  email: string;
+  phone?: string;
+  headline?: string;
+  location?: string;
+  yearsExperience: number;
+  skills: string[];
+  education: string[];
+  certifications: string[];
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type ParsedProfile = {
   rawText: string;
   skills: string[];
@@ -82,6 +97,21 @@ export type Application = {
   overrideReason?: string;
   createdAt: string;
   updatedAt: string;
+};
+
+export type ApplicantSavedApplication = {
+  id: string;
+  status: ApplicationStatus;
+  coverNote?: string;
+  createdAt: string;
+  updatedAt: string;
+  job: {
+    title: string;
+    slug: string;
+    department: string;
+    location: string;
+  };
+  score?: Pick<ScoreBreakdown, "finalScore" | "explanation" | "weakAreas">;
 };
 
 export type AuditEventType =
