@@ -1,6 +1,10 @@
 allowBuilds:
+  onnxruntime-node: true
+  protobufjs: false
   sharp: false
+  tesseract.js: true
   unrs-resolver: false
 ignoredBuiltDependencies:
+  - protobufjs
   - sharp
   - unrs-resolver

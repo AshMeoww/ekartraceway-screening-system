@@ -1,19 +1,9 @@
 import type { Job, ParsedProfile, ScoreBreakdown, ScreeningWeights } from "@/lib/types";
+import { screeningTextForJob } from "@/lib/ml";
 import { normalizedSimilarityScore } from "@/lib/text-similarity";
 
 function asLowerSet(values: string[]) {
   return new Set(values.map((value) => value.toLowerCase()));
-}
-
-function requirementText(job: Job) {
-  return [
-    job.title,
-    job.summary,
-    ...job.requirements,
-    ...job.skills,
-    ...job.education,
-    ...job.certifications,
-  ].join(" ");
 }
 
 function scoreList(required: string[], actual: string[]) {
@@ -49,12 +39,23 @@ export function validateWeights(weights: ScreeningWeights) {
   return total === 100 && Object.values(weights).every((value) => value >= 0);
 }
 
-export function scoreApplicant(job: Job, profile: ParsedProfile): ScoreBreakdown {
+type ScoreApplicantOptions = {
+  semanticScore?: number;
+  semanticSource?: "embedding" | "local-text";
+};
+
+export function scoreApplicant(
+  job: Job,
+  profile: ParsedProfile,
+  options: ScoreApplicantOptions = {},
+): ScoreBreakdown {
   if (!validateWeights(job.weights)) {
     throw new Error("Screening weights must be non-negative and total 100.");
   }
 
-  const semanticScore = normalizedSimilarityScore(requirementText(job), profile.rawText);
+  const semanticScore =
+    options.semanticScore ?? normalizedSimilarityScore(screeningTextForJob(job), profile.rawText);
+  const semanticSource = options.semanticSource ?? "local-text";
   const skills = scoreList(job.skills, profile.skills);
   const education = scoreList(job.education, profile.education);
   const certifications = scoreList(job.certifications, profile.certifications);
@@ -99,7 +100,9 @@ export function scoreApplicant(job: Job, profile: ParsedProfile): ScoreBreakdown
     matchedRequirements: [...skills.matched, ...education.matched, ...certifications.matched],
     weakAreas,
     explanation:
-      "Final score combines local text similarity with weighted skills, experience, education, and certification rules. This is advisory only.",
+      semanticSource === "embedding"
+        ? "Final score combines local embedding similarity with weighted skills, experience, education, and certification rules. This is advisory only; HR makes all final hiring decisions."
+        : "Final score combines local text similarity with weighted skills, experience, education, and certification rules. This is advisory only; HR makes all final hiring decisions.",
   };
 }
 
