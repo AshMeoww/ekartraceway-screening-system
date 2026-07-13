@@ -99,6 +99,13 @@ export type Application = {
   updatedAt: string;
 };
 
+export type ApplicationStatusHistoryEntry = {
+  fromStatus?: ApplicationStatus;
+  toStatus: ApplicationStatus;
+  reason?: string;
+  createdAt: string;
+};
+
 export type ApplicantSavedApplication = {
   id: string;
   status: ApplicationStatus;
@@ -112,6 +119,14 @@ export type ApplicantSavedApplication = {
     location: string;
   };
   score?: Pick<ScoreBreakdown, "finalScore" | "explanation" | "weakAreas">;
+};
+
+export type ApplicantApplicationDetail = ApplicantSavedApplication & {
+  applicant: Applicant;
+  parsedProfile?: ParsedProfile;
+  documents: ApplicationDocument[];
+  score?: ScoreBreakdown;
+  statusHistory: ApplicationStatusHistoryEntry[];
 };
 
 export type AuditEventType =

@@ -1,7 +1,9 @@
 import type {
+  ApplicantApplicationDetail,
   ApplicantProfile,
   ApplicantSavedApplication,
   Application,
+  ApplicationStatusHistoryEntry,
   Job,
 } from "@/lib/types";
 import { rankApplications } from "@/lib/scoring";
@@ -114,6 +116,33 @@ type ApplicantAccountApplicationRow = {
     | null;
 };
 
+type ApplicantApplicationDetailRow = Omit<
+  ApplicantAccountApplicationRow,
+  "scores"
+> & {
+  applicants:
+    | (ApplicantRow & { user_id: string | null })
+    | (ApplicantRow & { user_id: string | null })[]
+    | null;
+  documents: DocumentRow | DocumentRow[] | null;
+  parsed_profiles: ParsedProfileRow | ParsedProfileRow[] | null;
+  scores: ScoreRow | ScoreRow[] | null;
+  status_history:
+    | {
+        from_status: Application["status"] | null;
+        to_status: Application["status"];
+        reason: string | null;
+        created_at: string;
+      }
+    | {
+        from_status: Application["status"] | null;
+        to_status: Application["status"];
+        reason: string | null;
+        created_at: string;
+      }[]
+    | null;
+};
+
 type ApplicantProfileRow = {
   id: string;
   full_name: string;
@@ -165,6 +194,24 @@ function mapApplicantProfile(row: ApplicantProfileRow): ApplicantProfile {
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
+}
+
+function mapStatusHistory(
+  rows: ApplicantApplicationDetailRow["status_history"],
+): ApplicationStatusHistoryEntry[] {
+  const historyRows = Array.isArray(rows) ? rows : rows ? [rows] : [];
+
+  return historyRows
+    .map((row) => ({
+      fromStatus: row.from_status ?? undefined,
+      toStatus: row.to_status,
+      reason: row.reason ?? undefined,
+      createdAt: row.created_at,
+    }))
+    .sort(
+      (left, right) =>
+        new Date(left.createdAt).getTime() - new Date(right.createdAt).getTime(),
+    );
 }
 
 function isMissingApplicantProfilesTable(error: { code?: string; message?: string }) {
@@ -394,6 +441,105 @@ export async function getApplicantSavedApplications() {
   );
 
   return { user, applications };
+}
+
+export async function getApplicantApplicationById(id: string) {
+  const user = await getCurrentUser();
+
+  if (!user) {
+    return { user: null, application: null };
+  }
+
+  if (!isSupabaseConfigured()) {
+    return { user, application: null };
+  }
+
+  const supabase = await getSupabaseServerClient();
+  const { data, error } = await supabase!
+    .from("applications")
+    .select(
+      "id, status, cover_note, created_at, updated_at, applicants!inner(id, user_id, full_name, email, phone), jobs(title, slug, department, location), documents(id, file_name, mime_type, size_bytes), parsed_profiles(raw_text, skills, education, certifications, years_experience), scores(semantic_score, skills_score, experience_score, education_score, certifications_score, rule_based_score, final_score, matched_requirements, weak_areas, explanation), status_history(from_status, to_status, reason, created_at)",
+    )
+    .eq("id", id)
+    .eq("applicants.user_id", user.id)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  if (!data) {
+    return { user, application: null };
+  }
+
+  const row = data as unknown as ApplicantApplicationDetailRow;
+  const applicant = Array.isArray(row.applicants) ? row.applicants[0] : row.applicants;
+  const job = Array.isArray(row.jobs) ? row.jobs[0] : row.jobs;
+  const parsed = Array.isArray(row.parsed_profiles)
+    ? row.parsed_profiles[0]
+    : row.parsed_profiles;
+  const documents = Array.isArray(row.documents)
+    ? row.documents
+    : row.documents
+      ? [row.documents]
+      : [];
+  const score = Array.isArray(row.scores) ? row.scores[0] : row.scores;
+
+  if (!applicant || !job) {
+    throw new Error(`Application ${row.id} is missing required relations.`);
+  }
+
+  const application: ApplicantApplicationDetail = {
+    id: row.id,
+    status: row.status,
+    coverNote: row.cover_note ?? undefined,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    applicant: {
+      id: applicant.id,
+      fullName: applicant.full_name,
+      email: applicant.email,
+      phone: applicant.phone ?? undefined,
+    },
+    job: {
+      title: job.title,
+      slug: job.slug,
+      department: job.department,
+      location: job.location,
+    },
+    parsedProfile: parsed
+      ? {
+          rawText: parsed.raw_text,
+          skills: parsed.skills ?? [],
+          education: parsed.education ?? [],
+          certifications: parsed.certifications ?? [],
+          yearsExperience: parsed.years_experience ?? 0,
+        }
+      : undefined,
+    documents: documents.map((document) => ({
+      id: document.id,
+      fileName: document.file_name,
+      mimeType: document.mime_type ?? undefined,
+      sizeBytes: document.size_bytes ?? undefined,
+    })),
+    score: score
+      ? {
+          semanticScore: score.semantic_score,
+          skillsScore: score.skills_score,
+          experienceScore: score.experience_score,
+          educationScore: score.education_score,
+          certificationsScore: score.certifications_score,
+          ruleBasedScore: score.rule_based_score,
+          finalScore: score.final_score,
+          matchedRequirements: score.matched_requirements ?? [],
+          weakAreas: score.weak_areas ?? [],
+          explanation: score.explanation,
+        }
+      : undefined,
+    statusHistory: mapStatusHistory(row.status_history),
+  };
+
+  return { user, application };
 }
 
 export async function getApplicantProfile() {

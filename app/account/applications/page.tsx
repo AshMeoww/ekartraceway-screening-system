@@ -72,9 +72,16 @@ export default async function ApplicantApplicationsPage() {
                       </p>
                     </div>
                   ) : null}
-                  <Button asChild variant="ghost" size="sm" className="justify-self-start">
-                    <Link href={`/jobs/${application.job.slug}`}>View role</Link>
-                  </Button>
+                  <div className="flex flex-wrap gap-2">
+                    <Button asChild size="sm">
+                      <Link href={`/account/applications/${application.id}`}>
+                        View details
+                      </Link>
+                    </Button>
+                    <Button asChild variant="ghost" size="sm">
+                      <Link href={`/jobs/${application.job.slug}`}>View role</Link>
+                    </Button>
+                  </div>
                 </CardContent>
               </Card>
             ))
