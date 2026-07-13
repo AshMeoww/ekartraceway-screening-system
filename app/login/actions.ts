@@ -1,7 +1,10 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { getSupabaseServerClient } from "@/lib/supabase/server";
+import {
+  getAuthenticatedRedirectPath,
+  getSupabaseServerClient,
+} from "@/lib/supabase/server";
 
 export async function signIn(formData: FormData) {
   const email = String(formData.get("email") ?? "");
@@ -9,16 +12,16 @@ export async function signIn(formData: FormData) {
   const supabase = await getSupabaseServerClient();
 
   if (!supabase) {
-    redirect("/login?error=supabase-not-configured");
+    redirect("/auth/login?error=supabase-not-configured");
   }
 
   const { error } = await supabase.auth.signInWithPassword({ email, password });
 
   if (error) {
-    redirect("/login?error=invalid-credentials");
+    redirect("/auth/login?error=invalid-credentials");
   }
 
-  redirect("/hr");
+  redirect(await getAuthenticatedRedirectPath());
 }
 
 export async function signOut() {
@@ -28,5 +31,5 @@ export async function signOut() {
     await supabase.auth.signOut();
   }
 
-  redirect("/login");
+  redirect("/auth/login");
 }

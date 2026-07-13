@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getApplicantSavedApplications } from "@/lib/data";
-import { signOutApplicant } from "@/app/auth/actions";
+import { signOut } from "@/app/auth/actions";
 
 export const metadata = {
   title: "My Applications",
@@ -34,7 +34,7 @@ export default async function ApplicantApplicationsPage() {
             <Button asChild variant="secondary" size="sm">
               <Link href="/jobs">Browse jobs</Link>
             </Button>
-            <form action={signOutApplicant}>
+            <form action={signOut}>
               <Button type="submit" variant="ghost" size="sm">
                 Sign out
               </Button>

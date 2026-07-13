@@ -121,3 +121,28 @@ export async function getCurrentUser() {
 
   return user;
 }
+
+export async function getAuthenticatedRedirectPath() {
+  const supabase = await getSupabaseServerClient();
+
+  if (!supabase) {
+    return "/auth/login?error=supabase-not-configured";
+  }
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return "/auth/login";
+  }
+
+  const { data: profile } = await supabase
+    .from("user_profiles")
+    .select("role")
+    .eq("id", user.id)
+    .in("role", ["admin", "hr"])
+    .maybeSingle();
+
+  return profile ? "/hr" : "/account/applications";
+}

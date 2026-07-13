@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { signUpApplicant } from "../actions";
+import { signInWithGoogle, signUp } from "../actions";
 
 const errorCopy: Record<string, string> = {
   "supabase-not-configured": "Supabase is not configured yet.",
@@ -12,7 +12,7 @@ const errorCopy: Record<string, string> = {
 };
 
 export const metadata = {
-  title: "Applicant Signup",
+  title: "Sign Up",
 };
 
 export default async function ApplicantSignupPage({
@@ -28,7 +28,8 @@ export default async function ApplicantSignupPage({
         <CardHeader>
           <CardTitle>Create applicant account</CardTitle>
           <p className="text-sm leading-6 text-muted-foreground">
-            Save applications and return later to see their review status.
+            Applicants can save applications. Admin access is granted by an
+            existing HR profile.
           </p>
         </CardHeader>
         <CardContent>
@@ -37,7 +38,13 @@ export default async function ApplicantSignupPage({
               {errorCopy[error] ?? error}
             </p>
           ) : null}
-          <form action={signUpApplicant} className="grid gap-5">
+          <form action={signInWithGoogle} className="mb-5">
+            <Button type="submit" variant="secondary" className="w-full">
+              Continue with Google
+            </Button>
+          </form>
+          <div className="mb-5 h-px bg-border" />
+          <form action={signUp} className="grid gap-5">
             <div className="grid gap-2">
               <Label htmlFor="fullName">Full name</Label>
               <Input id="fullName" name="fullName" required />

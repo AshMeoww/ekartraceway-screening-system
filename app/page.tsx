@@ -38,10 +38,7 @@ export default function Home() {
                 Jobs
               </Link>
               <Link href="/auth/login" className="hover:text-foreground">
-                Applicant login
-              </Link>
-              <Link href="/login" className="hover:text-foreground">
-                HR login
+                Sign in
               </Link>
             </nav>
           </header>
@@ -67,10 +64,7 @@ export default function Home() {
                   </Link>
                 </Button>
                 <Button asChild variant="secondary">
-                  <Link href="/auth/signup">Create applicant account</Link>
-                </Button>
-                <Button asChild variant="ghost">
-                  <Link href="/login">Open HR workspace</Link>
+                  <Link href="/auth/login">Sign in or create account</Link>
                 </Button>
               </div>
               <p className="mt-5 max-w-xl text-sm leading-6 text-muted-foreground">

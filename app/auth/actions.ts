@@ -1,13 +1,20 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { getSupabaseServerClient } from "@/lib/supabase/server";
+import {
+  getAuthenticatedRedirectPath,
+  getSupabaseServerClient,
+} from "@/lib/supabase/server";
 
 function encoded(value: string) {
   return encodeURIComponent(value);
 }
 
-export async function signInApplicant(formData: FormData) {
+function authCallbackUrl() {
+  return `${process.env.APP_BASE_URL ?? "http://localhost:3000"}/auth/callback`;
+}
+
+export async function signIn(formData: FormData) {
   const email = String(formData.get("email") ?? "").trim();
   const password = String(formData.get("password") ?? "");
   const supabase = await getSupabaseServerClient();
@@ -22,10 +29,10 @@ export async function signInApplicant(formData: FormData) {
     redirect("/auth/login?error=invalid-credentials");
   }
 
-  redirect("/account/applications");
+  redirect(await getAuthenticatedRedirectPath());
 }
 
-export async function signUpApplicant(formData: FormData) {
+export async function signUp(formData: FormData) {
   const fullName = String(formData.get("fullName") ?? "").trim();
   const email = String(formData.get("email") ?? "").trim();
   const password = String(formData.get("password") ?? "");
@@ -59,13 +66,34 @@ export async function signUpApplicant(formData: FormData) {
   }
 
   if (data.session) {
-    redirect("/account/applications?created=1");
+    redirect(await getAuthenticatedRedirectPath());
   }
 
   redirect("/auth/login?message=check-email");
 }
 
-export async function signOutApplicant() {
+export async function signInWithGoogle() {
+  const supabase = await getSupabaseServerClient();
+
+  if (!supabase) {
+    redirect("/auth/login?error=supabase-not-configured");
+  }
+
+  const { data, error } = await supabase.auth.signInWithOAuth({
+    provider: "google",
+    options: {
+      redirectTo: authCallbackUrl(),
+    },
+  });
+
+  if (error || !data.url) {
+    redirect("/auth/login?error=google-oauth");
+  }
+
+  redirect(data.url);
+}
+
+export async function signOut() {
   const supabase = await getSupabaseServerClient();
 
   if (supabase) {

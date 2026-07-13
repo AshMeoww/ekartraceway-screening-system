@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { signOut } from "@/app/login/actions";
+import { signOut } from "@/app/auth/actions";
 import { Button } from "@/components/ui/button";
 
 const navItems = [

@@ -3,11 +3,13 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { signInApplicant } from "../actions";
+import { signIn, signInWithGoogle } from "../actions";
 
 const errorCopy: Record<string, string> = {
   "supabase-not-configured": "Supabase is not configured yet.",
   "invalid-credentials": "The email or password was not accepted.",
+  "google-oauth": "Google sign-in could not be started.",
+  "auth-code": "The sign-in callback could not be verified.",
 };
 
 const messageCopy: Record<string, string> = {
@@ -15,7 +17,7 @@ const messageCopy: Record<string, string> = {
 };
 
 export const metadata = {
-  title: "Applicant Login",
+  title: "Sign In",
 };
 
 export default async function ApplicantLoginPage({
@@ -29,9 +31,10 @@ export default async function ApplicantLoginPage({
     <main className="grid min-h-screen place-items-center bg-background px-5 py-10 text-foreground">
       <Card className="w-full max-w-md">
         <CardHeader>
-          <CardTitle>Applicant login</CardTitle>
+          <CardTitle>Sign in</CardTitle>
           <p className="text-sm leading-6 text-muted-foreground">
-            Sign in to save applications and track review progress.
+            Sign in once. Admin and HR users go to the review workspace;
+            applicants go to saved applications.
           </p>
         </CardHeader>
         <CardContent>
@@ -45,7 +48,13 @@ export default async function ApplicantLoginPage({
               {errorCopy[error] ?? error}
             </p>
           ) : null}
-          <form action={signInApplicant} className="grid gap-5">
+          <form action={signInWithGoogle} className="mb-5">
+            <Button type="submit" variant="secondary" className="w-full">
+              Continue with Google
+            </Button>
+          </form>
+          <div className="mb-5 h-px bg-border" />
+          <form action={signIn} className="grid gap-5">
             <div className="grid gap-2">
               <Label htmlFor="email">Email</Label>
               <Input id="email" name="email" type="email" required />
@@ -58,7 +67,7 @@ export default async function ApplicantLoginPage({
           </form>
           <div className="mt-4 grid gap-2">
             <Button asChild variant="secondary">
-              <Link href="/auth/signup">Create applicant account</Link>
+              <Link href="/auth/signup">Create account</Link>
             </Button>
             <Button asChild variant="ghost">
               <Link href="/">Back home</Link>
