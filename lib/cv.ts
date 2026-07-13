@@ -11,6 +11,12 @@ import {
 } from "@/lib/ocr";
 import { tokenize } from "@/lib/text-similarity";
 
+export type CvExtractionResult = {
+  text: string;
+  extractionMethod: "direct" | "ocr";
+  extractionSource: "pdf" | "docx" | "image";
+};
+
 const knownSkills = [
   "administration",
   "communication",
@@ -38,6 +44,11 @@ function pdfWorkerUrl() {
 }
 
 export async function extractCvText(file: File) {
+  const result = await extractCvTextWithMetadata(file);
+  return result.text;
+}
+
+export async function extractCvTextWithMetadata(file: File): Promise<CvExtractionResult> {
   if (file.size > MAX_CV_FILE_BYTES) {
     throw new Error("Upload a CV that is 10 MB or smaller.");
   }
@@ -55,7 +66,11 @@ export async function extractCvText(file: File) {
       const directText = parsed.text.trim();
 
       if (!needsOcrFallback(directText)) {
-        return directText;
+        return {
+          text: directText,
+          extractionMethod: "direct",
+          extractionSource: "pdf",
+        };
       }
 
       const screenshots = await parser.getScreenshot({
@@ -73,7 +88,11 @@ export async function extractCvText(file: File) {
         throw new Error("CV text could not be extracted. Upload a clearer PDF or DOCX CV.");
       }
 
-      return ocrText;
+      return {
+        text: ocrText,
+        extractionMethod: "ocr",
+        extractionSource: "pdf",
+      };
     } finally {
       await parser.destroy();
     }
@@ -86,7 +105,11 @@ export async function extractCvText(file: File) {
   ) {
     const mammoth = await import("mammoth");
     const parsed = await mammoth.extractRawText({ buffer });
-    return parsed.value;
+    return {
+      text: parsed.value,
+      extractionMethod: "direct",
+      extractionSource: "docx",
+    };
   }
 
   if (isSupportedImageCv(file.name, file.type)) {
@@ -96,7 +119,11 @@ export async function extractCvText(file: File) {
       throw new Error("CV text could not be extracted. Upload a clearer image, PDF, or DOCX CV.");
     }
 
-    return ocrText;
+    return {
+      text: ocrText,
+      extractionMethod: "ocr",
+      extractionSource: "image",
+    };
   }
 
   throw new Error("Upload a PDF, DOCX, PNG, JPG, WEBP, BMP, or TIFF CV.");

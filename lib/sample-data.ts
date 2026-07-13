@@ -73,12 +73,21 @@ const sampleParsedProfile = {
   education: ["high school diploma"],
   certifications: ["first aid"],
   yearsExperience: 3,
+  extractionMethod: "direct" as const,
+  extractionSource: "pdf" as const,
 };
 
 export const sampleApplications: Application[] = [
   {
     id: "app-demo-001",
     jobId: "job-track-associate",
+    job: {
+      id: sampleJobs[0].id,
+      slug: sampleJobs[0].slug,
+      title: sampleJobs[0].title,
+      department: sampleJobs[0].department,
+      location: sampleJobs[0].location,
+    },
     applicant: {
       id: "applicant-demo-001",
       fullName: "Demo Applicant",

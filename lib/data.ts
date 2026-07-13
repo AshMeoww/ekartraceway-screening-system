@@ -44,6 +44,8 @@ type ParsedProfileRow = {
   education: string[] | null;
   certifications: string[] | null;
   years_experience: number | null;
+  extraction_method?: "direct" | "ocr" | null;
+  extraction_source?: "pdf" | "docx" | "image" | "unknown" | null;
 };
 
 type ScoreRow = {
@@ -74,6 +76,22 @@ type ApplicationRow = {
   created_at: string;
   updated_at: string;
   override_reason: string | null;
+  jobs:
+    | {
+        id: string;
+        title: string;
+        slug: string;
+        department: string;
+        location: string;
+      }
+    | {
+        id: string;
+        title: string;
+        slug: string;
+        department: string;
+        location: string;
+      }[]
+    | null;
   applicants: ApplicantRow | ApplicantRow[] | null;
   parsed_profiles: ParsedProfileRow | ParsedProfileRow[] | null;
   documents: DocumentRow | DocumentRow[] | null;
@@ -259,7 +277,7 @@ export async function getHrApplications() {
   const { data, error } = await supabase!
     .from("applications")
     .select(
-      "id, job_id, status, cover_note, created_at, updated_at, override_reason, applicants(id, full_name, email, phone), documents(id, file_name, mime_type, size_bytes), parsed_profiles(raw_text, skills, education, certifications, years_experience), scores(semantic_score, skills_score, experience_score, education_score, certifications_score, rule_based_score, final_score, matched_requirements, weak_areas, explanation)",
+      "id, job_id, status, cover_note, created_at, updated_at, override_reason, jobs(id, title, slug, department, location), applicants(id, full_name, email, phone), documents(id, file_name, mime_type, size_bytes), parsed_profiles(raw_text, skills, education, certifications, years_experience, extraction_method, extraction_source), scores(semantic_score, skills_score, experience_score, education_score, certifications_score, rule_based_score, final_score, matched_requirements, weak_areas, explanation)",
     )
     .order("created_at", { ascending: false });
 
@@ -269,6 +287,7 @@ export async function getHrApplications() {
 
   const applications = (data as unknown as ApplicationRow[]).map((row): Application => {
     const applicant = Array.isArray(row.applicants) ? row.applicants[0] : row.applicants;
+    const job = Array.isArray(row.jobs) ? row.jobs[0] : row.jobs;
     const parsed = Array.isArray(row.parsed_profiles)
       ? row.parsed_profiles[0]
       : row.parsed_profiles;
@@ -286,6 +305,15 @@ export async function getHrApplications() {
     return {
       id: row.id,
       jobId: row.job_id,
+      job: job
+        ? {
+            id: job.id,
+            title: job.title,
+            slug: job.slug,
+            department: job.department,
+            location: job.location,
+          }
+        : undefined,
       status: row.status,
       coverNote: row.cover_note ?? undefined,
       overrideReason: row.override_reason ?? undefined,
@@ -302,6 +330,8 @@ export async function getHrApplications() {
             education: parsed.education ?? [],
             certifications: parsed.certifications ?? [],
             yearsExperience: parsed.years_experience ?? 0,
+            extractionMethod: parsed.extraction_method ?? "direct",
+            extractionSource: parsed.extraction_source ?? "unknown",
           }
         : undefined,
       documents: documents.map((document) => ({

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { applicationSchema } from "@/lib/validation";
-import { extractCvText, parseProfileFromText } from "@/lib/cv";
+import { extractCvTextWithMetadata, parseProfileFromText } from "@/lib/cv";
 import { getJobById } from "@/lib/data";
 import {
   generateEmbedding,
@@ -65,8 +65,12 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Published job not found." }, { status: 404 });
     }
 
-    const rawText = await extractCvText(file);
-    const parsedProfile = parseProfileFromText(rawText);
+    const cvExtraction = await extractCvTextWithMetadata(file);
+    const parsedProfile = {
+      ...parseProfileFromText(cvExtraction.text),
+      extractionMethod: cvExtraction.extractionMethod,
+      extractionSource: cvExtraction.extractionSource,
+    };
     let requirementsEmbedding: number[] | null = null;
     let profileEmbedding: number[] | null = null;
     let semanticScore: number | undefined;
@@ -155,6 +159,8 @@ export async function POST(request: Request) {
       certifications: parsedProfile.certifications,
       years_experience: parsedProfile.yearsExperience,
       profile_embedding: profileEmbedding ? vectorForPostgres(profileEmbedding) : null,
+      extraction_method: parsedProfile.extractionMethod,
+      extraction_source: parsedProfile.extractionSource,
     });
     if (requirementsEmbedding) {
       await supabase
@@ -178,7 +184,14 @@ export async function POST(request: Request) {
     await supabase.from("audit_logs").insert([
       { application_id: application.id, event_type: "application.created" },
       { application_id: application.id, event_type: "document.uploaded" },
-      { application_id: application.id, event_type: "document.parsed" },
+      {
+        application_id: application.id,
+        event_type: "document.parsed",
+        metadata: {
+          extraction_method: parsedProfile.extractionMethod,
+          extraction_source: parsedProfile.extractionSource,
+        },
+      },
       {
         application_id: application.id,
         event_type: "score.generated",

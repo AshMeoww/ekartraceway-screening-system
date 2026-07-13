@@ -55,6 +55,8 @@ export type ParsedProfile = {
   education: string[];
   certifications: string[];
   yearsExperience: number;
+  extractionMethod?: "direct" | "ocr";
+  extractionSource?: "pdf" | "docx" | "image" | "unknown";
 };
 
 export type ScreeningWeights = {
@@ -88,6 +90,7 @@ export type ApplicationDocument = {
 export type Application = {
   id: string;
   jobId: string;
+  job?: Pick<Job, "id" | "slug" | "title" | "department" | "location">;
   applicant: Applicant;
   status: ApplicationStatus;
   coverNote?: string;
