@@ -1,4 +1,6 @@
 import type { ParsedProfile } from "@/lib/types";
+import path from "node:path";
+import { pathToFileURL } from "node:url";
 import { tokenize } from "@/lib/text-similarity";
 
 const knownSkills = [
@@ -14,12 +16,26 @@ const knownSkills = [
   "training",
 ];
 
+function pdfWorkerUrl() {
+  return pathToFileURL(
+    path.join(
+      process.cwd(),
+      "node_modules",
+      "pdf-parse",
+      "dist",
+      "worker",
+      "pdf.worker.mjs",
+    ),
+  ).href;
+}
+
 export async function extractCvText(file: File) {
   const buffer = Buffer.from(await file.arrayBuffer());
   const name = file.name.toLowerCase();
 
   if (name.endsWith(".pdf") || file.type === "application/pdf") {
     const { PDFParse } = await import("pdf-parse");
+    PDFParse.setWorker(pdfWorkerUrl());
     const parser = new PDFParse({ data: buffer });
 
     try {

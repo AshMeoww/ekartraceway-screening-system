@@ -18,6 +18,29 @@ type Props = {
   isSignedIn?: boolean;
 };
 
+type ApplicationResponseBody = {
+  error?: string;
+  message?: string;
+};
+
+async function readApplicationResponse(response: Response) {
+  const text = await response.text();
+
+  if (!text) {
+    return {} as ApplicationResponseBody;
+  }
+
+  try {
+    return JSON.parse(text) as ApplicationResponseBody;
+  } catch {
+    return {
+      error: response.ok
+        ? undefined
+        : "Application could not be submitted. The server returned an unreadable response.",
+    };
+  }
+}
+
 export function ApplicationForm({
   jobId,
   initialEmail = "",
@@ -64,7 +87,7 @@ export function ApplicationForm({
       method: "POST",
       body: formData,
     });
-    const body = await response.json();
+    const body = await readApplicationResponse(response);
 
     if (!response.ok) {
       setServerError(body.error ?? "Application could not be submitted.");
