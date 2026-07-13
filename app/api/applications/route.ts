@@ -2,12 +2,21 @@ import { NextResponse } from "next/server";
 import { applicationSchema } from "@/lib/validation";
 import { extractCvText, parseProfileFromText } from "@/lib/cv";
 import { getJobById } from "@/lib/data";
+import {
+  generateEmbedding,
+  normalizedEmbeddingScore,
+  screeningTextForJob,
+  screeningTextForProfile,
+  vectorForPostgres,
+} from "@/lib/ml";
 import { scoreApplicant } from "@/lib/scoring";
 import {
   getCurrentUser,
   getSupabaseServiceClient,
   isServiceRoleConfigured,
 } from "@/lib/supabase/server";
+
+export const runtime = "nodejs";
 
 function errorMessage(error: unknown) {
   return error instanceof Error ? error.message : "Application could not be submitted.";
@@ -44,7 +53,10 @@ export async function POST(request: Request) {
     }
 
     if (!(file instanceof File) || file.size === 0) {
-      return NextResponse.json({ error: "A PDF or DOCX CV is required." }, { status: 400 });
+      return NextResponse.json(
+        { error: "A PDF, DOCX, or image CV is required." },
+        { status: 400 },
+      );
     }
 
     const job = await getJobById(parsedInput.data.jobId);
@@ -55,7 +67,24 @@ export async function POST(request: Request) {
 
     const rawText = await extractCvText(file);
     const parsedProfile = parseProfileFromText(rawText);
-    const score = scoreApplicant(job, parsedProfile);
+    let requirementsEmbedding: number[] | null = null;
+    let profileEmbedding: number[] | null = null;
+    let semanticScore: number | undefined;
+    let semanticSource: "embedding" | "local-text" = "local-text";
+
+    try {
+      [requirementsEmbedding, profileEmbedding] = await Promise.all([
+        generateEmbedding(screeningTextForJob(job)),
+        generateEmbedding(screeningTextForProfile(parsedProfile)),
+      ]);
+      semanticScore = normalizedEmbeddingScore(requirementsEmbedding, profileEmbedding);
+      semanticSource = "embedding";
+    } catch {
+      requirementsEmbedding = null;
+      profileEmbedding = null;
+    }
+
+    const score = scoreApplicant(job, parsedProfile, { semanticScore, semanticSource });
     const currentUser = await getCurrentUser();
 
     if (!isServiceRoleConfigured()) {
@@ -125,7 +154,14 @@ export async function POST(request: Request) {
       education: parsedProfile.education,
       certifications: parsedProfile.certifications,
       years_experience: parsedProfile.yearsExperience,
+      profile_embedding: profileEmbedding ? vectorForPostgres(profileEmbedding) : null,
     });
+    if (requirementsEmbedding) {
+      await supabase
+        .from("jobs")
+        .update({ requirements_embedding: vectorForPostgres(requirementsEmbedding) })
+        .eq("id", job.id);
+    }
     await supabase.from("scores").insert({
       application_id: application.id,
       semantic_score: score.semanticScore,
@@ -143,7 +179,11 @@ export async function POST(request: Request) {
       { application_id: application.id, event_type: "application.created" },
       { application_id: application.id, event_type: "document.uploaded" },
       { application_id: application.id, event_type: "document.parsed" },
-      { application_id: application.id, event_type: "score.generated" },
+      {
+        application_id: application.id,
+        event_type: "score.generated",
+        metadata: { semantic_source: semanticSource },
+      },
     ]);
 
     return NextResponse.json({ id: application.id, parsedProfile, score }, { status: 201 });

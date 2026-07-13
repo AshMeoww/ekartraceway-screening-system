@@ -71,7 +71,7 @@ export function ApplicationForm({
     setServerError(null);
 
     if (!cvFile) {
-      setServerError("Upload a PDF or DOCX CV.");
+      setServerError("Upload a PDF, DOCX, or image CV.");
       return;
     }
 
@@ -156,7 +156,7 @@ export function ApplicationForm({
         <Input
           id="cv"
           type="file"
-          accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+          accept=".pdf,.docx,.png,.jpg,.jpeg,.webp,.bmp,.tif,.tiff,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,image/png,image/jpeg,image/webp,image/bmp,image/tiff"
           onChange={(event) => setCvFile(event.target.files?.[0] ?? null)}
         />
       </div>
