@@ -18,6 +18,29 @@ type Props = {
   isSignedIn?: boolean;
 };
 
+type ApplicationResponseBody = {
+  error?: string;
+  message?: string;
+};
+
+async function readApplicationResponse(response: Response) {
+  const text = await response.text();
+
+  if (!text) {
+    return {} as ApplicationResponseBody;
+  }
+
+  try {
+    return JSON.parse(text) as ApplicationResponseBody;
+  } catch {
+    return {
+      error: response.ok
+        ? undefined
+        : "Application could not be submitted. The server returned an unreadable response.",
+    };
+  }
+}
+
 export function ApplicationForm({
   jobId,
   initialEmail = "",
@@ -48,7 +71,7 @@ export function ApplicationForm({
     setServerError(null);
 
     if (!cvFile) {
-      setServerError("Upload a PDF or DOCX CV.");
+      setServerError("Upload a PDF, DOCX, or image CV.");
       return;
     }
 
@@ -64,7 +87,7 @@ export function ApplicationForm({
       method: "POST",
       body: formData,
     });
-    const body = await response.json();
+    const body = await readApplicationResponse(response);
 
     if (!response.ok) {
       setServerError(body.error ?? "Application could not be submitted.");
@@ -133,7 +156,7 @@ export function ApplicationForm({
         <Input
           id="cv"
           type="file"
-          accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+          accept=".pdf,.docx,.png,.jpg,.jpeg,.webp,.bmp,.tif,.tiff,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,image/png,image/jpeg,image/webp,image/bmp,image/tiff"
           onChange={(event) => setCvFile(event.target.files?.[0] ?? null)}
         />
       </div>

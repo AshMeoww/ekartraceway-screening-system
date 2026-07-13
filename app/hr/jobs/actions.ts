@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { generateEmbedding, screeningTextForJob, vectorForPostgres } from "@/lib/ml";
 import { getCurrentHrUser, getSupabaseServiceClient } from "@/lib/supabase/server";
 import {
   jobSchema,
@@ -9,6 +10,7 @@ import {
   parseProfileList,
   screeningWeightsSchema,
 } from "@/lib/validation";
+import type { Job } from "@/lib/types";
 
 type JobActionState = {
   error?: string;
@@ -104,6 +106,37 @@ export async function createJob(
 
   const jobInput = parsedJob.data;
   const status = parsedStatus.data;
+  const responsibilities = lines(formData.get("responsibilities"));
+  const education = lines(formData.get("education"));
+  const certifications = lines(formData.get("certifications"));
+  const jobForEmbedding: Job = {
+    id: "pending",
+    slug: "pending",
+    title: jobInput.title,
+    department: jobInput.department,
+    location: jobInput.location,
+    employmentType: jobInput.employmentType,
+    status,
+    summary: jobInput.summary,
+    responsibilities,
+    requirements: jobInput.requirements,
+    skills: jobInput.skills,
+    education,
+    certifications,
+    minYearsExperience: jobInput.minYearsExperience,
+    weights: weights.data,
+    createdAt: new Date().toISOString(),
+  };
+  let requirementsEmbedding: string | null = null;
+
+  try {
+    requirementsEmbedding = vectorForPostgres(
+      await generateEmbedding(screeningTextForJob(jobForEmbedding)),
+    );
+  } catch {
+    requirementsEmbedding = null;
+  }
+
   let createResult;
 
   try {
@@ -118,13 +151,14 @@ export async function createJob(
           employment_type: jobInput.employmentType,
           status,
           summary: jobInput.summary,
-          responsibilities: lines(formData.get("responsibilities")),
+          responsibilities,
           requirements: jobInput.requirements,
           skills: jobInput.skills,
-          education: lines(formData.get("education")),
-          certifications: lines(formData.get("certifications")),
+          education,
+          certifications,
           min_years_experience: jobInput.minYearsExperience,
           weights: weights.data,
+          requirements_embedding: requirementsEmbedding,
           created_by: hrUser.user.id,
         })
         .select("id")
@@ -152,6 +186,7 @@ export async function createJob(
       job_id: job.id,
       actor_id: hrUser.user.id,
       event_type: "job.created",
+      metadata: { requirements_embedding: Boolean(requirementsEmbedding) },
     },
     ...(status === "published"
       ? [
