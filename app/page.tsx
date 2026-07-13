@@ -37,6 +37,9 @@ export default function Home() {
               <Link href="/jobs" className="hover:text-foreground">
                 Jobs
               </Link>
+              <Link href="/auth/login" className="hover:text-foreground">
+                Applicant login
+              </Link>
               <Link href="/login" className="hover:text-foreground">
                 HR login
               </Link>
@@ -64,6 +67,9 @@ export default function Home() {
                   </Link>
                 </Button>
                 <Button asChild variant="secondary">
+                  <Link href="/auth/signup">Create applicant account</Link>
+                </Button>
+                <Button asChild variant="ghost">
                   <Link href="/login">Open HR workspace</Link>
                 </Button>
               </div>

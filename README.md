@@ -64,6 +64,9 @@ Open [http://localhost:3000](http://localhost:3000).
 - `/jobs` public job listing
 - `/jobs/[slug]` public job detail
 - `/jobs/[slug]/apply` applicant form and CV upload
+- `/auth/signup` applicant account creation
+- `/auth/login` applicant login
+- `/account/applications` saved applicant submissions
 - `/login` HR login
 - `/hr` HR dashboard
 - `/hr/jobs` HR job management surface

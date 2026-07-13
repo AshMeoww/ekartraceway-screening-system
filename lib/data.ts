@@ -1,7 +1,11 @@
-import type { Application, Job } from "@/lib/types";
+import type { ApplicantSavedApplication, Application, Job } from "@/lib/types";
 import { rankApplications } from "@/lib/scoring";
 import { sampleApplications, sampleJobs } from "@/lib/sample-data";
-import { getSupabaseServerClient, isSupabaseConfigured } from "@/lib/supabase/server";
+import {
+  getCurrentUser,
+  getSupabaseServerClient,
+  isSupabaseConfigured,
+} from "@/lib/supabase/server";
 
 type JobRow = {
   id: string;
@@ -69,6 +73,40 @@ type ApplicationRow = {
   parsed_profiles: ParsedProfileRow | ParsedProfileRow[] | null;
   documents: DocumentRow | DocumentRow[] | null;
   scores: ScoreRow | ScoreRow[] | null;
+};
+
+type ApplicantAccountApplicationRow = {
+  id: string;
+  status: Application["status"];
+  cover_note: string | null;
+  created_at: string;
+  updated_at: string;
+  jobs:
+    | {
+        title: string;
+        slug: string;
+        department: string;
+        location: string;
+      }
+    | {
+        title: string;
+        slug: string;
+        department: string;
+        location: string;
+      }[]
+    | null;
+  scores:
+    | {
+        final_score: number;
+        explanation: string;
+        weak_areas: string[] | null;
+      }
+    | {
+        final_score: number;
+        explanation: string;
+        weak_areas: string[] | null;
+      }[]
+    | null;
 };
 
 function mapJob(row: JobRow): Job {
@@ -252,4 +290,63 @@ export async function getHrApplications() {
 export async function getHrApplicationById(id: string) {
   const applications = await getHrApplications();
   return applications.find((application) => application.id === id) ?? null;
+}
+
+export async function getApplicantSavedApplications() {
+  const user = await getCurrentUser();
+
+  if (!user) {
+    return { user: null, applications: [] as ApplicantSavedApplication[] };
+  }
+
+  if (!isSupabaseConfigured()) {
+    return { user, applications: [] as ApplicantSavedApplication[] };
+  }
+
+  const supabase = await getSupabaseServerClient();
+  const { data, error } = await supabase!
+    .from("applications")
+    .select(
+      "id, status, cover_note, created_at, updated_at, applicants!inner(user_id), jobs(title, slug, department, location), scores(final_score, explanation, weak_areas)",
+    )
+    .eq("applicants.user_id", user.id)
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  const applications = (data as unknown as ApplicantAccountApplicationRow[]).map(
+    (row) => {
+      const job = Array.isArray(row.jobs) ? row.jobs[0] : row.jobs;
+      const score = Array.isArray(row.scores) ? row.scores[0] : row.scores;
+
+      if (!job) {
+        throw new Error(`Application ${row.id} is missing a job relation.`);
+      }
+
+      return {
+        id: row.id,
+        status: row.status,
+        coverNote: row.cover_note ?? undefined,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at,
+        job: {
+          title: job.title,
+          slug: job.slug,
+          department: job.department,
+          location: job.location,
+        },
+        score: score
+          ? {
+              finalScore: score.final_score,
+              explanation: score.explanation,
+              weakAreas: score.weak_areas ?? [],
+            }
+          : undefined,
+      } satisfies ApplicantSavedApplication;
+    },
+  );
+
+  return { user, applications };
 }

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getJobBySlug } from "@/lib/data";
+import { getCurrentUser } from "@/lib/supabase/server";
 import { ApplicationForm } from "./application-form";
 
 export default async function ApplyPage({
@@ -11,6 +12,7 @@ export default async function ApplyPage({
 }) {
   const { slug } = await params;
   const job = await getJobBySlug(slug);
+  const user = await getCurrentUser();
 
   if (!job) {
     notFound();
@@ -31,7 +33,16 @@ export default async function ApplyPage({
             </p>
           </CardHeader>
           <CardContent>
-            <ApplicationForm jobId={job.id} />
+            <ApplicationForm
+              jobId={job.id}
+              initialEmail={user?.email ?? ""}
+              initialFullName={
+                typeof user?.user_metadata.full_name === "string"
+                  ? user.user_metadata.full_name
+                  : ""
+              }
+              isSignedIn={Boolean(user)}
+            />
           </CardContent>
         </Card>
       </div>
