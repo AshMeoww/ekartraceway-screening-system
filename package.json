@@ -12,6 +12,8 @@
     "test:unit:watch": "vitest tests/unit",
     "test:integration": "vitest run tests/integration",
     "test:e2e": "playwright test",
+    "qa": "pnpm lint && pnpm typecheck && pnpm test:unit && pnpm test:integration && pnpm build",
+    "qa:e2e": "pnpm test:e2e",
     "test:all": "pnpm lint && pnpm typecheck && pnpm test:unit && pnpm test:integration && pnpm build"
   },
   "dependencies": {
