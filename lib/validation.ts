@@ -26,14 +26,16 @@ export const statusUpdateSchema = z.object({
   overrideReason: z.string().trim().max(1000).optional(),
 });
 
+export const jobStatusSchema = z.enum(["draft", "published", "closed"]);
+
 export const jobSchema = z.object({
-  title: z.string().trim().min(2),
-  department: z.string().trim().min(2),
-  location: z.string().trim().min(2),
-  employmentType: z.string().trim().min(2),
-  summary: z.string().trim().min(20),
-  requirements: z.array(z.string().trim().min(1)).min(1),
-  skills: z.array(z.string().trim().min(1)).min(1),
+  title: z.string().trim().min(2, "Enter a job title."),
+  department: z.string().trim().min(2, "Enter a department."),
+  location: z.string().trim().min(2, "Enter a location."),
+  employmentType: z.string().trim().min(2, "Enter an employment type."),
+  summary: z.string().trim().min(1, "Enter a role summary."),
+  requirements: z.array(z.string().trim().min(1)).min(1, "Add at least one requirement."),
+  skills: z.array(z.string().trim().min(1)).min(1, "Add at least one skill."),
   minYearsExperience: z.coerce.number().int().min(0).max(60),
 });
 

@@ -1,15 +1,19 @@
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getHrJobs } from "@/lib/data";
-import { setJobStatus } from "./actions";
 import { JobForm } from "./job-form";
+import { JobStatusForm } from "./job-status-form";
 
 export const metadata = {
   title: "HR Jobs",
 };
 
-export default async function HrJobsPage() {
+export default async function HrJobsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ error?: string; message?: string }>;
+}) {
+  const { error, message } = await searchParams;
   const jobs = await getHrJobs();
 
   return (
@@ -22,6 +26,16 @@ export default async function HrJobsPage() {
           job listings. HR decisions stay advisory and review-led.
         </p>
       </div>
+      {error ? (
+        <p className="mb-6 rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
+          {error}
+        </p>
+      ) : null}
+      {message ? (
+        <p className="mb-6 rounded-md border border-success/30 bg-success/10 p-3 text-sm text-success">
+          {message}
+        </p>
+      ) : null}
       <Card className="mb-6">
         <CardHeader>
           <CardTitle>Create job</CardTitle>
@@ -53,17 +67,11 @@ export default async function HrJobsPage() {
                 <Metric label="Education" value={job.weights.education} />
                 <Metric label="Certs" value={job.weights.certifications} />
               </div>
-              <form action={setJobStatus} className="flex justify-end">
-                <input type="hidden" name="jobId" value={job.id} />
-                <input
-                  type="hidden"
-                  name="status"
-                  value={job.status === "published" ? "draft" : "published"}
-                />
-                <Button type="submit" variant="secondary" size="sm">
-                  {job.status === "published" ? "Unpublish" : "Publish"}
-                </Button>
-              </form>
+              <JobStatusForm
+                jobId={job.id}
+                status={job.status === "published" ? "draft" : "published"}
+                label={job.status === "published" ? "Unpublish" : "Publish"}
+              />
             </CardContent>
           </Card>
         ))}

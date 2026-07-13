@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   applicantProfileSchema,
   applicationSchema,
+  jobStatusSchema,
   parseProfileList,
   screeningWeightsSchema,
 } from "@/lib/validation";
@@ -48,5 +49,10 @@ describe("validation schemas", () => {
     });
 
     expect(result.success).toBe(true);
+  });
+
+  it("validates publishable job statuses", () => {
+    expect(jobStatusSchema.safeParse("published").success).toBe(true);
+    expect(jobStatusSchema.safeParse("archived").success).toBe(false);
   });
 });
