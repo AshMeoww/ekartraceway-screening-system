@@ -14,6 +14,7 @@ type Props = {
   jobId: string;
   initialEmail?: string;
   initialFullName?: string;
+  initialPhone?: string;
   isSignedIn?: boolean;
 };
 
@@ -21,6 +22,7 @@ export function ApplicationForm({
   jobId,
   initialEmail = "",
   initialFullName = "",
+  initialPhone = "",
   isSignedIn = false,
 }: Props) {
   const [cvFile, setCvFile] = useState<File | null>(null);
@@ -37,6 +39,7 @@ export function ApplicationForm({
       jobId,
       email: initialEmail,
       fullName: initialFullName,
+      phone: initialPhone,
     },
   });
 
@@ -72,7 +75,12 @@ export function ApplicationForm({
       body.message ??
         "Application submitted. HR will review the parsed profile and advisory score.",
     );
-    reset({ jobId, email: initialEmail, fullName: initialFullName });
+    reset({
+      jobId,
+      email: initialEmail,
+      fullName: initialFullName,
+      phone: initialPhone,
+    });
     setCvFile(null);
   }
 

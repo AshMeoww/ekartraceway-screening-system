@@ -34,6 +34,21 @@ export type Applicant = {
   phone?: string;
 };
 
+export type ApplicantProfile = {
+  id: string;
+  fullName: string;
+  email: string;
+  phone?: string;
+  headline?: string;
+  location?: string;
+  yearsExperience: number;
+  skills: string[];
+  education: string[];
+  certifications: string[];
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type ParsedProfile = {
   rawText: string;
   skills: string[];

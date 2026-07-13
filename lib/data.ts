@@ -1,4 +1,9 @@
-import type { ApplicantSavedApplication, Application, Job } from "@/lib/types";
+import type {
+  ApplicantProfile,
+  ApplicantSavedApplication,
+  Application,
+  Job,
+} from "@/lib/types";
 import { rankApplications } from "@/lib/scoring";
 import { sampleApplications, sampleJobs } from "@/lib/sample-data";
 import {
@@ -109,6 +114,21 @@ type ApplicantAccountApplicationRow = {
     | null;
 };
 
+type ApplicantProfileRow = {
+  id: string;
+  full_name: string;
+  email: string;
+  phone: string | null;
+  headline: string | null;
+  location: string | null;
+  years_experience: number | null;
+  skills: string[] | null;
+  education: string[] | null;
+  certifications: string[] | null;
+  created_at: string;
+  updated_at: string;
+};
+
 function mapJob(row: JobRow): Job {
   return {
     id: row.id,
@@ -128,6 +148,31 @@ function mapJob(row: JobRow): Job {
     weights: row.weights,
     createdAt: row.created_at,
   };
+}
+
+function mapApplicantProfile(row: ApplicantProfileRow): ApplicantProfile {
+  return {
+    id: row.id,
+    fullName: row.full_name,
+    email: row.email,
+    phone: row.phone ?? undefined,
+    headline: row.headline ?? undefined,
+    location: row.location ?? undefined,
+    yearsExperience: row.years_experience ?? 0,
+    skills: row.skills ?? [],
+    education: row.education ?? [],
+    certifications: row.certifications ?? [],
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+function isMissingApplicantProfilesTable(error: { code?: string; message?: string }) {
+  return (
+    error.code === "PGRST205" ||
+    (error.message?.includes("applicant_profiles") &&
+      error.message.includes("schema cache"))
+  );
 }
 
 export async function getPublishedJobs() {
@@ -349,4 +394,44 @@ export async function getApplicantSavedApplications() {
   );
 
   return { user, applications };
+}
+
+export async function getApplicantProfile() {
+  const user = await getCurrentUser();
+
+  if (!user) {
+    return { user: null, profile: null };
+  }
+
+  if (!isSupabaseConfigured()) {
+    return { user, profile: null };
+  }
+
+  const supabase = await getSupabaseServerClient();
+  const { data, error } = await supabase!
+    .from("applicant_profiles")
+    .select(
+      "id, full_name, email, phone, headline, location, years_experience, skills, education, certifications, created_at, updated_at",
+    )
+    .eq("id", user.id)
+    .maybeSingle();
+
+  if (error) {
+    if (isMissingApplicantProfilesTable(error)) {
+      return {
+        user,
+        profile: null,
+        setupError:
+          "Applicant profiles are not available yet. Apply the applicant_profiles Supabase migration, then reload the page.",
+      };
+    }
+
+    throw new Error(error.message);
+  }
+
+  return {
+    user,
+    profile: data ? mapApplicantProfile(data as ApplicantProfileRow) : null,
+    setupError: null,
+  };
 }
