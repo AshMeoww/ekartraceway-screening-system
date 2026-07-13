@@ -1,6 +1,7 @@
 import { createServerClient as createSupabaseServerClient } from "@supabase/ssr";
 import { createClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
+import { getSupabasePublicKey, getSupabaseUrl } from "@/lib/supabase/env";
 
 type LooseTable = {
   Row: Record<string, unknown>;
@@ -23,10 +24,7 @@ type AnyDatabase = {
 };
 
 export function isSupabaseConfigured() {
-  return Boolean(
-    process.env.NEXT_PUBLIC_SUPABASE_URL &&
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-  );
+  return Boolean(getSupabaseUrl() && getSupabasePublicKey());
 }
 
 export function isServiceRoleConfigured() {
@@ -41,8 +39,8 @@ export async function getSupabaseServerClient() {
   const cookieStore = await cookies();
 
   return createSupabaseServerClient<AnyDatabase>(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    getSupabaseUrl()!,
+    getSupabasePublicKey()!,
     {
       cookies: {
         getAll() {
@@ -71,7 +69,7 @@ export function getSupabaseServiceClient() {
 
   if (!serviceClient) {
     serviceClient = createClient<AnyDatabase>(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      getSupabaseUrl()!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!,
       {
         auth: {

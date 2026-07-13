@@ -24,6 +24,7 @@ Copy `.env.example` to `.env.local` and fill the Supabase values:
 
 ```env
 NEXT_PUBLIC_SUPABASE_URL=
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=
 NEXT_PUBLIC_SUPABASE_ANON_KEY=
 SUPABASE_SERVICE_ROLE_KEY=
 DATABASE_URL=
@@ -31,7 +32,9 @@ APP_BASE_URL=http://localhost:3000
 FIRST_ADMIN_EMAIL=
 ```
 
-Never commit `.env.local`. Keep `SUPABASE_SERVICE_ROLE_KEY` server-only.
+Use either `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` or the older
+`NEXT_PUBLIC_SUPABASE_ANON_KEY`. Never commit `.env.local`. Keep
+`SUPABASE_SERVICE_ROLE_KEY` server-only.
 
 ## Supabase Setup
 
